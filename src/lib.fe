@@ -45,10 +45,10 @@ impl Keccak256 {
         self.lanes[16] ^= 0x8000000000000000
         permute(mut self.lanes)
         let mut digest: [u8; 32] = [0; 32]
-        let mut index: usize = 0
+        let mut index: u64 = 0
         while index < 32 {
-            let shift: u64 = ((index % 8) * 8).downcast_unchecked()
-            digest[index] = (self.lanes[index / 8] >> shift).downcast_truncate()
+            let shift = (index % 8) * 8
+            digest[index as usize] = (self.lanes[(index / 8) as usize] >> shift).downcast_truncate()
             index += 1
         }
         digest

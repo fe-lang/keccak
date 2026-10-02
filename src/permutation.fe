@@ -1,4 +1,5 @@
-// Keccak-f[1600], indexed x + 5*y. Constants and round definition:
+// Keccak-f[1600], indexed x + 5*y. Small counters use u64 because Fe usize
+// has 256-bit arithmetic, including on native targets. Constants and round definition:
 // https://keccak.team/keccak_specs_summary.html
 const ROUND_CONSTANTS: [u64; 24] = [
     0x0000000000000001, 0x0000000000008082, 0x800000000000808a, 0x8000000080008000,
@@ -18,20 +19,20 @@ fn rotate(_ value: u64, by: u64) -> u64 {
 }
 
 pub fn permute(_ state: mut [u64; 25]) {
-    let mut round: usize = 0
+    let mut round: u64 = 0
     while round < 24 {
         let mut columns: [u64; 5] = [0; 5]
-        let mut x: usize = 0
+        let mut x: u64 = 0
         while x < 5 {
-            columns[x] = state[x] ^ state[x + 5] ^ state[x + 10] ^ state[x + 15] ^ state[x + 20]
+            columns[(x) as usize] = state[(x) as usize] ^ state[(x + 5) as usize] ^ state[(x + 10) as usize] ^ state[(x + 15) as usize] ^ state[(x + 20) as usize]
             x += 1
         }
         x = 0
         while x < 5 {
-            let delta = columns[(x + 4) % 5] ^ rotate(columns[(x + 1) % 5], by: 1)
-            let mut y: usize = 0
+            let delta = columns[((x + 4) % 5) as usize] ^ rotate(columns[((x + 1) % 5) as usize], by: 1)
+            let mut y: u64 = 0
             while y < 5 {
-                state[x + 5 * y] ^= delta
+                state[(x + 5 * y) as usize] ^= delta
                 y += 1
             }
             x += 1
@@ -39,23 +40,23 @@ pub fn permute(_ state: mut [u64; 25]) {
         let mut rotated: [u64; 25] = [0; 25]
         x = 0
         while x < 5 {
-            let mut y: usize = 0
+            let mut y: u64 = 0
             while y < 5 {
-                rotated[y + 5 * ((2 * x + 3 * y) % 5)] = rotate(state[x + 5 * y], by: ROTATIONS[x + 5 * y])
+                rotated[(y + 5 * ((2 * x + 3 * y) % 5)) as usize] = rotate(state[(x + 5 * y) as usize], by: ROTATIONS[(x + 5 * y) as usize])
                 y += 1
             }
             x += 1
         }
         x = 0
         while x < 5 {
-            let mut y: usize = 0
+            let mut y: u64 = 0
             while y < 5 {
-                state[x + 5 * y] = rotated[x + 5 * y] ^ (!rotated[(x + 1) % 5 + 5 * y] & rotated[(x + 2) % 5 + 5 * y])
+                state[(x + 5 * y) as usize] = rotated[(x + 5 * y) as usize] ^ (!rotated[((x + 1) % 5 + 5 * y) as usize] & rotated[((x + 2) % 5 + 5 * y) as usize])
                 y += 1
             }
             x += 1
         }
-        state[0] ^= ROUND_CONSTANTS[round]
+        state[0] ^= ROUND_CONSTANTS[(round) as usize]
         round += 1
     }
 }
