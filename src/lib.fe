@@ -1,0 +1,62 @@
+use ingot::permutation::permute
+
+/// Read-only bytes. Implementations must accept every index below `len()`.
+/// Hashing borrows its source and never allocates or retains a reference to it.
+pub trait ByteSource {
+    fn len(self) -> u64
+    fn byte_at(self, _ index: u64) -> u8
+}
+
+impl<const N: usize> ByteSource for [u8; N] {
+    fn len(self) -> u64 {
+        core::assert(N <= 0xffffffffffffffff)
+        N.downcast_unchecked()
+    }
+    fn byte_at(self, _ index: u64) -> u8 { self[index as usize] }
+}
+
+/// Ethereum's Keccak-256: 136-byte rate, 512-bit capacity, suffix 0x01.
+/// This is distinct from the SHA3-256 variant, whose suffix is 0x06.
+pub struct Keccak256 { lanes: [u64; 25], position: u64 }
+
+impl Keccak256 {
+    pub fn new() -> Self { Self { lanes: [0; 25], position: 0 } }
+
+    /// Absorb a source range. Empty updates do not change the hash state.
+    pub fn update<T: ByteSource>(mut self, _ input: T, offset: u64, len: u64) {
+        core::assert(offset <= input.len() && len <= input.len() - offset)
+        let mut index: u64 = 0
+        while index < len {
+            let lane = (self.position / 8) as usize
+            let shift = (self.position % 8) * 8
+            self.lanes[lane] ^= (input.byte_at(offset + index) as u64) << shift
+            self.position += 1
+            if self.position == 136 {
+                permute(mut self.lanes)
+                self.position = 0
+            }
+            index += 1
+        }
+    }
+
+    /// Apply Keccak padding, return the digest, and consume the state.
+    pub fn finish(mut own self) -> [u8; 32] {
+        self.lanes[(self.position / 8) as usize] ^= 1 << ((self.position % 8) * 8)
+        self.lanes[16] ^= 0x8000000000000000
+        permute(mut self.lanes)
+        let mut digest: [u8; 32] = [0; 32]
+        let mut index: usize = 0
+        while index < 32 {
+            let shift: u64 = ((index % 8) * 8).downcast_unchecked()
+            digest[index] = (self.lanes[index / 8] >> shift).downcast_truncate()
+            index += 1
+        }
+        digest
+    }
+}
+
+pub fn keccak256<T: ByteSource>(_ input: T) -> [u8; 32] {
+    let mut state = Keccak256::new()
+    state.update(input, offset: 0, len: input.len())
+    state.finish()
+}

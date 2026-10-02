@@ -1,0 +1,7 @@
+use std::native::ByteBuffer
+use ingot::ByteSource
+
+impl ByteSource for ByteBuffer {
+    fn len(self) -> u64 { ByteBuffer::len(self) }
+    fn byte_at(self, _ index: u64) -> u8 { ByteBuffer::byte_at(self, index) }
+}

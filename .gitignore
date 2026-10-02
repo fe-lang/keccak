@@ -1,0 +1,7 @@
+/native/out/
+/native/reference/target/
+/target/
+/out/
+/.fe-lsp/
+/.fe-lsp.json
+__pycache__/
