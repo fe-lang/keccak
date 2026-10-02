@@ -39,3 +39,33 @@ fe test . --backend native -O 2
 Coverage includes fixed known answers, empty input, chunking across the
 136-byte rate boundary, and borrowed native-buffer subranges. The library
 is currently verified for native compilation.
+
+## Native differential checks and benchmarks
+
+`native/` owns the binary driver, two pinned Rust oracles (`tiny-keccak` 2.0.2
+and RustCrypto `sha3` 0.10.9), and the Python runner. The complete runner needs
+Fe's `std::native::black_box_u64` API in addition to native compilation support.
+
+```sh
+python3 -m unittest discover -s native -p 'test_*.py'
+cargo nextest r --release --no-fail-fast --manifest-path native/reference/Cargo.toml
+python3 native/run.py --fe /path/to/fe --out native/out/checks --check-only
+python3 native/run.py --fe /path/to/fe --out native/out/timing
+```
+
+Install Rust 1.98.1 through rustup, Python 3.10+, and a C compiler with binutils
+(`size`/`objdump` on Linux, `size`/`otool` on macOS). `--toolchain` selects the
+Rust reference toolchain explicitly. Every run uses its own Cargo output path.
+The runner supports x86_64 Linux and AArch64 macOS; only Linux has been verified.
+
+The runner executes all library tests and 600 deterministic randomized/chunked
+comparisons at O0/O1/O2. Timing excludes process startup, allocation, parsing,
+and I/O. Each hash includes initialization/finalization, one opaque scalar
+barrier call, and an observable rolling checksum. Rust uses the same C barrier
+as the Fe native runtime, with C optimization at O2 and LTO disabled.
+
+Reports retain source/compiler/executable hashes, compiler flags, Rust package
+metadata, host/CPU-affinity details, all samples, build duration, executable
+sizes, and disassembly. On Linux, timed processes use one allowed CPU. CPU time
+still depends on frequency and competing workloads; use an idle host for stable
+comparisons. `--check-only` skips timing while retaining correctness checks.
