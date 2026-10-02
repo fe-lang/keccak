@@ -9,54 +9,85 @@ const ROUND_CONSTANTS: [u64; 24] = [
     0x8000000000008002, 0x8000000000000080, 0x000000000000800a, 0x800000008000000a,
     0x8000000080008081, 0x8000000000008080, 0x0000000080000001, 0x8000000080008008,
 ]
-const ROTATIONS: [u64; 25] = [
-    0, 1, 62, 28, 27, 36, 44, 6, 55, 20, 3, 10, 43, 25, 39,
-    41, 45, 15, 21, 8, 18, 2, 61, 56, 14,
-]
 
+#[inline(always)]
 fn rotate(_ value: u64, by: u64) -> u64 {
-    if by == 0 { value } else { (value << by) | (value >> (64 - by)) }
+    (value << by) | (value >> (64 - by))
 }
 
+// The fixed 5x5 round exposes constant lane indices and rotation amounts.
+// Keep only the 24-round loop; no run-time modulo or temporary lane arrays.
 pub fn permute(_ state: mut [u64; 25]) {
     let mut round: u64 = 0
     while round < 24 {
-        let mut columns: [u64; 5] = [0; 5]
-        let mut x: u64 = 0
-        while x < 5 {
-            columns[(x) as usize] = state[(x) as usize] ^ state[(x + 5) as usize] ^ state[(x + 10) as usize] ^ state[(x + 15) as usize] ^ state[(x + 20) as usize]
-            x += 1
-        }
-        x = 0
-        while x < 5 {
-            let delta = columns[((x + 4) % 5) as usize] ^ rotate(columns[((x + 1) % 5) as usize], by: 1)
-            let mut y: u64 = 0
-            while y < 5 {
-                state[(x + 5 * y) as usize] ^= delta
-                y += 1
-            }
-            x += 1
-        }
-        let mut rotated: [u64; 25] = [0; 25]
-        x = 0
-        while x < 5 {
-            let mut y: u64 = 0
-            while y < 5 {
-                rotated[(y + 5 * ((2 * x + 3 * y) % 5)) as usize] = rotate(state[(x + 5 * y) as usize], by: ROTATIONS[(x + 5 * y) as usize])
-                y += 1
-            }
-            x += 1
-        }
-        x = 0
-        while x < 5 {
-            let mut y: u64 = 0
-            while y < 5 {
-                state[(x + 5 * y) as usize] = rotated[(x + 5 * y) as usize] ^ (!rotated[((x + 1) % 5 + 5 * y) as usize] & rotated[((x + 2) % 5 + 5 * y) as usize])
-                y += 1
-            }
-            x += 1
-        }
-        state[0] ^= ROUND_CONSTANTS[(round) as usize]
+        // Theta: column parities and their neighboring deltas.
+        let c0 = state[0] ^ state[5] ^ state[10] ^ state[15] ^ state[20]
+        let c1 = state[1] ^ state[6] ^ state[11] ^ state[16] ^ state[21]
+        let c2 = state[2] ^ state[7] ^ state[12] ^ state[17] ^ state[22]
+        let c3 = state[3] ^ state[8] ^ state[13] ^ state[18] ^ state[23]
+        let c4 = state[4] ^ state[9] ^ state[14] ^ state[19] ^ state[24]
+        let d0 = c4 ^ rotate(c1, by: 1)
+        let d1 = c0 ^ rotate(c2, by: 1)
+        let d2 = c1 ^ rotate(c3, by: 1)
+        let d3 = c2 ^ rotate(c4, by: 1)
+        let d4 = c3 ^ rotate(c0, by: 1)
+
+        // Rho/Pi: rotate each theta-adjusted lane into its new position.
+        let b0 = state[0] ^ d0
+        let b10 = rotate(state[1] ^ d1, by: 1)
+        let b20 = rotate(state[2] ^ d2, by: 62)
+        let b5 = rotate(state[3] ^ d3, by: 28)
+        let b15 = rotate(state[4] ^ d4, by: 27)
+        let b16 = rotate(state[5] ^ d0, by: 36)
+        let b1 = rotate(state[6] ^ d1, by: 44)
+        let b11 = rotate(state[7] ^ d2, by: 6)
+        let b21 = rotate(state[8] ^ d3, by: 55)
+        let b6 = rotate(state[9] ^ d4, by: 20)
+        let b7 = rotate(state[10] ^ d0, by: 3)
+        let b17 = rotate(state[11] ^ d1, by: 10)
+        let b2 = rotate(state[12] ^ d2, by: 43)
+        let b12 = rotate(state[13] ^ d3, by: 25)
+        let b22 = rotate(state[14] ^ d4, by: 39)
+        let b23 = rotate(state[15] ^ d0, by: 41)
+        let b8 = rotate(state[16] ^ d1, by: 45)
+        let b18 = rotate(state[17] ^ d2, by: 15)
+        let b3 = rotate(state[18] ^ d3, by: 21)
+        let b13 = rotate(state[19] ^ d4, by: 8)
+        let b14 = rotate(state[20] ^ d0, by: 18)
+        let b24 = rotate(state[21] ^ d1, by: 2)
+        let b9 = rotate(state[22] ^ d2, by: 61)
+        let b19 = rotate(state[23] ^ d3, by: 56)
+        let b4 = rotate(state[24] ^ d4, by: 14)
+
+        // Chi: every output row reads the complete pre-Chi row.
+        state[0] = b0 ^ (!b1 & b2)
+        state[1] = b1 ^ (!b2 & b3)
+        state[2] = b2 ^ (!b3 & b4)
+        state[3] = b3 ^ (!b4 & b0)
+        state[4] = b4 ^ (!b0 & b1)
+        state[5] = b5 ^ (!b6 & b7)
+        state[6] = b6 ^ (!b7 & b8)
+        state[7] = b7 ^ (!b8 & b9)
+        state[8] = b8 ^ (!b9 & b5)
+        state[9] = b9 ^ (!b5 & b6)
+        state[10] = b10 ^ (!b11 & b12)
+        state[11] = b11 ^ (!b12 & b13)
+        state[12] = b12 ^ (!b13 & b14)
+        state[13] = b13 ^ (!b14 & b10)
+        state[14] = b14 ^ (!b10 & b11)
+        state[15] = b15 ^ (!b16 & b17)
+        state[16] = b16 ^ (!b17 & b18)
+        state[17] = b17 ^ (!b18 & b19)
+        state[18] = b18 ^ (!b19 & b15)
+        state[19] = b19 ^ (!b15 & b16)
+        state[20] = b20 ^ (!b21 & b22)
+        state[21] = b21 ^ (!b22 & b23)
+        state[22] = b22 ^ (!b23 & b24)
+        state[23] = b23 ^ (!b24 & b20)
+        state[24] = b24 ^ (!b20 & b21)
+
+        // Iota.
+        state[0] ^= ROUND_CONSTANTS[round as usize]
         round += 1
     }
 }
