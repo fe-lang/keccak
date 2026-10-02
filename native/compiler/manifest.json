@@ -1,0 +1,17 @@
+{
+  "repository": "https://github.com/argotorg/fe",
+  "base_revision": "04d34410582e4ddac3f516c6ded1a0fdb4a31b3c",
+  "local_barrier_revision": "04a1c24b071086e6a171b21b2fe86d369d7b88d9",
+  "patch_sha256": "4cb1d2b503c4c91488bd3ae66269a212fe86429711c787e237d59559dd6f5ff2",
+  "sonatina_revision": "9c35018759aff07516025684fea0be784b0cf6df",
+  "rust_toolchain": "1.98.1",
+  "features": [
+    "cranelift"
+  ],
+  "verification": {
+    "command": "cargo nextest r --release --locked --workspace --all-features --no-fail-fast --test-threads 2",
+    "passed": 4480,
+    "skipped": 1,
+    "clippy": "cargo clippy --locked --workspace --all-targets --all-features -- -D clippy::all"
+  }
+}

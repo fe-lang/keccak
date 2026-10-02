@@ -1,0 +1,39 @@
+diff --git a/src/lib.fe b/src/lib.fe
+index f12be07..0814dd2 100644
+--- a/src/lib.fe
++++ b/src/lib.fe
+@@ -28,14 +28,30 @@ impl Keccak256 {
+         let mut index: u64 = 0
+         while index < len {
+             let lane = (self.position / 8) as usize
+-            let shift = (self.position % 8) * 8
+-            self.lanes[lane] ^= (input.byte_at(offset + index) as u64) << shift
+-            self.position += 1
++            if self.position % 8 == 0 && len - index >= 8 {
++                // Absorb a complete little-endian lane in one state update.
++                let start = offset + index
++                let word = (input.byte_at(start) as u64)
++                    | ((input.byte_at(start + 1) as u64) << 8)
++                    | ((input.byte_at(start + 2) as u64) << 16)
++                    | ((input.byte_at(start + 3) as u64) << 24)
++                    | ((input.byte_at(start + 4) as u64) << 32)
++                    | ((input.byte_at(start + 5) as u64) << 40)
++                    | ((input.byte_at(start + 6) as u64) << 48)
++                    | ((input.byte_at(start + 7) as u64) << 56)
++                self.lanes[lane] ^= word
++                self.position += 8
++                index += 8
++            } else {
++                let shift = (self.position % 8) * 8
++                self.lanes[lane] ^= (input.byte_at(offset + index) as u64) << shift
++                self.position += 1
++                index += 1
++            }
+             if self.position == 136 {
+                 permute(mut self.lanes)
+                 self.position = 0
+             }
+-            index += 1
+         }
+     }
+ 

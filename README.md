@@ -45,6 +45,8 @@ is currently verified for native compilation.
 `native/` owns the binary driver, two pinned Rust oracles (`tiny-keccak` 2.0.2
 and RustCrypto `sha3` 0.10.9), and the Python runner. The complete runner needs
 Fe's `std::native::black_box_u64` API in addition to native compilation support.
+Until that API is upstream, build the [included compiler patch](native/compiler/README.md)
+on the recorded published Fe base. The library itself does not need the patch.
 
 ```sh
 python3 -m unittest discover -s native -p 'test_*.py'
@@ -69,3 +71,6 @@ metadata, host/CPU-affinity details, all samples, build duration, executable
 sizes, and disassembly. On Linux, timed processes use one allowed CPU. CPU time
 still depends on frequency and competing workloads; use an idle host for stable
 comparisons. `--check-only` skips timing while retaining correctness checks.
+
+The [recorded optimization experiments](native/reports/20261002/README.md) include
+all raw samples, correctness results and the rejected absorption candidate.
