@@ -5,8 +5,8 @@ use std::native::{ByteBuffer, black_box_u64, cpu_clock_ticks}
 use keccak::Keccak256
 
 fn read64() -> u64 uses (input: mut Read) {
-    let mut value: u64 = 0
-    let mut index: u64 = 0
+    var value: u64 = 0
+    var index: u64 = 0
     while index < 8 {
         let byte = read_char()
         core::assert(byte >= 0)
@@ -23,7 +23,7 @@ fn write_byte(_ value: u8) uses (output: mut HostIo) {
 }
 
 fn write64(_ value: u64) uses (output: mut HostIo) {
-    let mut index: u64 = 0
+    var index: u64 = 0
     while index < 8 {
         write_byte((value >> (index * 8)).downcast_truncate())
         index += 1
@@ -32,11 +32,11 @@ fn write64(_ value: u64) uses (output: mut HostIo) {
 
 #[inline(never)]
 fn hash_runtime(_ input: ByteBuffer, len: u64, chunk: u64) -> [u8; 32] {
-    let mut state = Keccak256::new()
+    var state = Keccak256::new()
     if chunk == 0 {
         state.update(input, offset: 0, len)
     } else {
-        let mut offset: u64 = 0
+        var offset: u64 = 0
         while offset < len {
             let take = if chunk < len - offset { chunk } else { len - offset }
             state.update(input, offset, len: take)
@@ -48,29 +48,29 @@ fn hash_runtime(_ input: ByteBuffer, len: u64, chunk: u64) -> [u8; 32] {
 
 pub fn main() -> i32 {
     with (Read = host(), HostIo = host()) {
-        let mut marker = read_char()
+        var marker = read_char()
         while marker != -1 {
             core::assert(marker == 64)
             let rounds = read64()
             let chunk = read64()
             let len = read64()
             core::assert(rounds > 0 && rounds <= 1_000_000_000 && len <= 64 * 1024 * 1024)
-            let mut input = ByteBuffer::new()
+            var input = ByteBuffer::new()
             core::assert(input.try_resize(len))
-            let mut index: u64 = 0
+            var index: u64 = 0
             while index < len {
                 let byte = read_char()
                 core::assert(byte >= 0)
                 input.set_byte(index, value: byte.downcast_unchecked())
                 index += 1
             }
-            let mut result: [u8; 32] = [0; 32]
-            let mut checksum: u64 = 0
-            let mut iteration: u64 = 0
+            var result: [u8; 32] = [0; 32]
+            var checksum: u64 = 0
+            var iteration: u64 = 0
             let started = cpu_clock_ticks()
             while iteration < rounds {
                 result = hash_runtime(input, len: black_box_u64(len), chunk)
-                let mut word: u64 = 0
+                var word: u64 = 0
                 index = 0
                 while index < 8 {
                     word |= (result[index as usize] as u64) << (index * 8)

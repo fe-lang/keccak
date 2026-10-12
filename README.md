@@ -8,7 +8,7 @@ This implements Keccak padding (suffix `0x01`), not SHA3-256 (`0x06`).
 use keccak::{Keccak256, keccak256}
 
 let digest = keccak256([97 as u8, 98, 99])
-let mut state = Keccak256::new()
+var state = Keccak256::new()
 state.update([97 as u8, 98, 99], offset: 0, len: 2)
 state.update([97 as u8, 98, 99], offset: 2, len: 1)
 let streamed = state.finish()
@@ -26,8 +26,9 @@ and its tests.
 
 ## Tests
 
-Verified on Linux x86_64 with Fe master
-`04d34410582e4ddac3f516c6ded1a0fdb4a31b3c`, built with `--features cranelift`.
+The MVS port passes all three library tests at O0/O1/O2 on Linux x86_64 with
+`sbillig/fe:mvs` at `fe5c32c1b9913a259667be9123a9090beb16ed1a`, built with
+`--features cranelift`. It uses `var` mutable values and `var own self` receivers.
 Run the library's native tests at all optimization levels:
 
 ```sh
