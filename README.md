@@ -26,9 +26,9 @@ and its tests.
 
 ## Tests
 
-The MVS port passes all three library tests at O0/O1/O2 on Linux x86_64 with
-`sbillig/fe:mvs` at `fe5c32c1b9913a259667be9123a9090beb16ed1a`, built with
-`--features cranelift`. It uses `var` mutable values and `var own self` receivers.
+All three library tests pass at O0/O1/O2 on Linux x86_64 with Fe master
+`f69b911ce544c4fe72b2481adcafabf1d967a278`, built with `--features cranelift`.
+The library uses MVS `var` mutable values and `var own self` receivers.
 Run the library's native tests at all optimization levels:
 
 ```sh
