@@ -1,3 +1,4 @@
+use core::{MemBuffer, MemSpan}
 use ingot::permutation::permute
 
 /// Read-only bytes. Implementations must accept every index below `len()`.
@@ -12,6 +13,18 @@ impl<const N: usize> ByteSource for [u8; N] {
         core::assert(N <= 0xffffffffffffffff)
         N.downcast_unchecked()
     }
+    fn byte_at(self, _ index: u64) -> u8 { self[index as usize] }
+}
+
+impl ByteSource for MemBuffer {
+    // A buffer holds at most 2**64 - 1 bytes.
+    fn len(self) -> u64 { MemBuffer::len(self).downcast_unchecked() }
+    fn byte_at(self, _ index: u64) -> u8 { self[index as usize] }
+}
+
+impl ByteSource for MemSpan {
+    // A span lies in an allocation of at most 2**64 - 1 bytes.
+    fn len(self) -> u64 { MemSpan::len(self).downcast_unchecked() }
     fn byte_at(self, _ index: u64) -> u8 { self[index as usize] }
 }
 

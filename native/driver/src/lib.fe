@@ -1,7 +1,8 @@
 // Binary requests: '@', rounds/chunk/length as LE u64, then input bytes.
 // Responses: LE u64 CPU ticks, 32 digest bytes, LE u64 checksum of all rounds.
 use std::io::{HostIo, Read, Write, host, read_char}
-use std::native::{ByteBuffer, black_box_u64, cpu_clock_ticks}
+use core::MemBuffer
+use std::native::{black_box_u64, cpu_clock_ticks}
 use keccak::Keccak256
 
 fn read64() -> u64 uses (input: mut Read) {
@@ -31,7 +32,7 @@ fn write64(_ value: u64) uses (output: mut HostIo) {
 }
 
 #[inline(never)]
-fn hash_runtime(_ input: ByteBuffer, len: u64, chunk: u64) -> [u8; 32] {
+fn hash_runtime(_ input: MemBuffer, len: u64, chunk: u64) -> [u8; 32] {
     var state = Keccak256::new()
     if chunk == 0 {
         state.update(input, offset: 0, len)
@@ -55,13 +56,13 @@ pub fn main() -> i32 {
             let chunk = read64()
             let len = read64()
             core::assert(rounds > 0 && rounds <= 1_000_000_000 && len <= 64 * 1024 * 1024)
-            var input = ByteBuffer::new()
-            core::assert(input.try_resize(len))
+            var input = MemBuffer::empty()
+            core::assert(input.try_resize(len as usize))
             var index: u64 = 0
             while index < len {
                 let byte = read_char()
                 core::assert(byte >= 0)
-                input.set_byte(index, value: byte.downcast_unchecked())
+                input[index as usize] = byte.downcast_unchecked()
                 index += 1
             }
             var result: [u8; 32] = [0; 32]
@@ -84,7 +85,6 @@ pub fn main() -> i32 {
             write64((ended - started).downcast_unchecked())
             for byte in result { write_byte(byte) }
             write64(checksum)
-            input.release()
             marker = read_char()
         }
     }

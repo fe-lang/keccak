@@ -14,8 +14,8 @@ state.update([97 as u8, 98, 99], offset: 2, len: 1)
 let streamed = state.finish()
 ```
 
-`ByteSource` supplies `len()` and `byte_at(index)` for arrays and
-`std::native::ByteBuffer`. Implement it for other borrowed byte sources.
+`ByteSource` supplies `len()` and `byte_at(index)` for arrays, `core::MemBuffer`
+and `core::MemSpan`. Implement it for other borrowed byte sources.
 `update` checks its source range, accepts empty updates, and supports arbitrary
 chunk boundaries. `finish` consumes the hash state and returns `[u8; 32]`.
 
@@ -26,8 +26,9 @@ and its tests.
 
 ## Tests
 
-All three library tests pass at O0/O1/O2 on Linux x86_64 with Fe master
-`f69b911ce544c4fe72b2481adcafabf1d967a278`, built with `--features cranelift`.
+All three library tests pass at O0/O1/O2 natively and on EVM on Linux x86_64
+with Fe `999ff9562` (branch `feat/owned-value-destruction`), built with
+`--features cranelift`.
 The library uses MVS `var` mutable values and `var own self` receivers.
 Run the library's native tests at all optimization levels:
 
@@ -38,8 +39,8 @@ fe test . --backend native -O 2
 ```
 
 Coverage includes fixed known answers, empty input, chunking across the
-136-byte rate boundary, and borrowed native-buffer subranges. The library
-is currently verified for native compilation.
+136-byte rate boundary, and borrowed buffer subranges. The library tests also
+pass on EVM (`fe test .`).
 
 ## Native differential checks and benchmarks
 
