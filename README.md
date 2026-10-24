@@ -27,7 +27,7 @@ and its tests.
 ## Tests
 
 All three library tests pass at O0/O1/O2 natively and on EVM on Linux x86_64
-with Fe `a353e3cb1` (branch `feat/owned-value-destruction`), built with
+with Fe `0f2218d38` (branch `feat/owned-value-destruction`), built with
 `--features cranelift`.
 The library uses MVS `var` mutable values and `var own self` receivers.
 Run the library's native tests at all optimization levels:
