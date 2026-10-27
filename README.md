@@ -5,19 +5,25 @@ state is 25 64-bit lanes; inputs are borrowed and never retained or modified.
 This implements Keccak padding (suffix `0x01`), not SHA3-256 (`0x06`).
 
 ```fe
-use keccak::{Keccak256, keccak256}
+use keccak::{Keccak256, keccak256, keccak256_word}
 
 let digest = keccak256([97 as u8, 98, 99])
 var state = Keccak256::new()
 state.update([97 as u8, 98, 99], offset: 0, len: 2)
 state.update([97 as u8, 98, 99], offset: 2, len: 1)
 let streamed = state.finish()
+let word = keccak256_word([97 as u8, 98, 99])
 ```
 
-`ByteSource` supplies `len()` and `byte_at(index)` for arrays, `core::MemBuffer`
-and `core::MemSpan`. Implement it for other borrowed byte sources.
+`ByteSource` supplies `len()`, `byte_at(index)` and `lane_at(index)` for
+arrays, `core::MemBuffer` and `core::MemSpan`. `lane_at` returns eight bytes as
+a little-endian `u64`; it defaults to eight `byte_at` reads, and the buffer and
+span read the lane at once. Implement them for other borrowed byte sources.
 `update` checks its source range, accepts empty updates, and supports arbitrary
-chunk boundaries. `finish` consumes the hash state and returns `[u8; 32]`.
+chunk boundaries; between lane boundaries it absorbs whole lanes. `finish`
+consumes the hash state and returns `[u8; 32]`; `finish_word` returns the digest
+as a big-endian `u256`, as the EVM's `KECCAK256` does, and `keccak256_word`
+hashes a whole source that way.
 
 The permutation follows the [Keccak team specification](https://keccak.team/keccak_specs_summary.html).
 The original library and benchmark foundation were developed in
@@ -26,8 +32,9 @@ and its tests.
 
 ## Tests
 
-All three library tests pass at O0/O1/O2 natively and on EVM on Linux x86_64
-with Fe `0f2218d38` (branch `feat/owned-value-destruction`), built with
+All four library tests pass at O0/O1/O2 natively and on EVM on Linux x86_64
+with Fe `d12da142a` (branch `feat/generic-byte-order`, which adds
+`MemSpan::read_le` and `core::num::swap_bytes`), built with
 `--features cranelift`.
 The library uses MVS `var` mutable values and `var own self` receivers.
 Run the library's native tests at all optimization levels:
@@ -39,7 +46,8 @@ fe test . --backend native -O 2
 ```
 
 Coverage includes fixed known answers, empty input, chunking across the
-136-byte rate boundary, and borrowed buffer subranges. The library tests also
+136-byte rate boundary, buffer and span lanes at every alignment against byte
+reads, the word digest, and borrowed buffer subranges. The library tests also
 pass on EVM (`fe test .`).
 
 ## Native differential checks and benchmarks
