@@ -59,10 +59,14 @@ impl Keccak256 {
             self.absorb_byte(input.byte_at(offset + index))
             index += 1
         }
-        while len - index >= 8 {
-            self.lanes[(self.position / 8) as usize] ^= input.lane_at(offset + index)
+        // Whole lanes. `index + remaining` stays `len`, and `offset + len`
+        // fits the input, so the additions cannot wrap.
+        var remaining = len - index
+        while remaining >= 8 {
+            self.lanes[(self.position / 8) as usize] ^= input.lane_at(offset.wrapping_add(index))
             self.advance(8)
-            index += 8
+            index = index.wrapping_add(8)
+            remaining -= 8
         }
         while index < len {
             self.absorb_byte(input.byte_at(offset + index))
