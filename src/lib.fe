@@ -1,4 +1,5 @@
 use core::{MemBuffer, MemSpan}
+use core::ptr::{cast, offset_bytes}
 use ingot::permutation::permute
 
 /// Read-only bytes. Implementations must accept every index below `len()`.
@@ -6,6 +7,16 @@ use ingot::permutation::permute
 pub trait ByteSource {
     fn len(self) -> u64
     fn byte_at(self, _ index: u64) -> u8
+    /// The 8 bytes from `index` on as a little-endian lane.
+    fn lane_at(self, _ index: u64) -> u64 {
+        var lane: u64 = 0
+        var byte: u64 = 0
+        while byte < 8 {
+            lane |= (self.byte_at(index + byte) as u64) << (byte * 8)
+            byte += 1
+        }
+        lane
+    }
 }
 
 impl<const N: usize> ByteSource for [u8; N] {
@@ -20,6 +31,12 @@ impl ByteSource for MemBuffer {
     // A buffer holds at most 2**64 - 1 bytes.
     fn len(self) -> u64 { MemBuffer::len(self).downcast_unchecked() }
     fn byte_at(self, _ index: u64) -> u8 { self[index as usize] }
+    // PROTOTYPE: native little-endian load.
+    fn lane_at(self, _ index: u64) -> u64 {
+        let at = index as usize
+        core::assert(at <= MemBuffer::len(self) && 8 <= MemBuffer::len(self) - at)
+        unsafe { *cast<u8, u64>(offset_bytes(self.ptr(), at)) }
+    }
 }
 
 impl ByteSource for MemSpan {
@@ -39,24 +56,50 @@ impl Keccak256 {
     pub fn update<T: ByteSource>(mut self, _ input: T, offset: u64, len: u64) {
         core::assert(offset <= input.len() && len <= input.len() - offset)
         var index: u64 = 0
-        while index < len {
-            let lane = (self.position / 8) as usize
-            let shift = (self.position % 8) * 8
-            self.lanes[lane] ^= (input.byte_at(offset + index) as u64) << shift
-            self.position += 1
+        while index < len && self.position % 8 != 0 {
+            self.absorb_byte(input.byte_at(offset + index))
+            index += 1
+        }
+        while len - index >= 8 {
+            self.lanes[(self.position / 8) as usize] ^= input.lane_at(offset + index)
+            self.position += 8
             if self.position == 136 {
                 permute(mut self.lanes)
                 self.position = 0
             }
+            index += 8
+        }
+        while index < len {
+            self.absorb_byte(input.byte_at(offset + index))
             index += 1
         }
     }
 
-    /// Apply Keccak padding, return the digest, and consume the state.
-    pub fn finish(var own self) -> [u8; 32] {
+    fn absorb_byte(mut self, _ byte: u8) {
+        self.lanes[(self.position / 8) as usize] ^= (byte as u64) << ((self.position % 8) * 8)
+        self.position += 1
+        if self.position == 136 {
+            permute(mut self.lanes)
+            self.position = 0
+        }
+    }
+
+    fn pad(mut self) {
         self.lanes[(self.position / 8) as usize] ^= 1 << ((self.position % 8) * 8)
         self.lanes[16] ^= 0x8000000000000000
         permute(mut self.lanes)
+    }
+
+    /// Apply Keccak padding and return the digest as a big-endian word.
+    pub fn finish_word(var own self) -> u256 {
+        self.pad()
+        ((swap_bytes(self.lanes[0]) as u256) << 192) | ((swap_bytes(self.lanes[1]) as u256) << 128)
+            | ((swap_bytes(self.lanes[2]) as u256) << 64) | (swap_bytes(self.lanes[3]) as u256)
+    }
+
+    /// Apply Keccak padding, return the digest, and consume the state.
+    pub fn finish(var own self) -> [u8; 32] {
+        self.pad()
         var digest: [u8; 32] = [0; 32]
         var index: u64 = 0
         while index < 32 {
@@ -72,4 +115,10 @@ pub fn keccak256<T: ByteSource>(_ input: T) -> [u8; 32] {
     var state = Keccak256::new()
     state.update(input, offset: 0, len: input.len())
     state.finish()
+}
+
+fn swap_bytes(_ value: u64) -> u64 {
+    let x = ((value & 0x00ff00ff00ff00ff) << 8) | ((value >> 8) & 0x00ff00ff00ff00ff)
+    let y = ((x & 0x0000ffff0000ffff) << 16) | ((x >> 16) & 0x0000ffff0000ffff)
+    (y << 32) | (y >> 32)
 }
