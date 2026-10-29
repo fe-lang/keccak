@@ -24,9 +24,9 @@ fn keccak_updates_cross_rate_boundaries_and_preserve_the_input() {
         index += 1
     }
     let expected = digest_word(keccak256(input))
-    for chunk in [1 as u64, 7, 8, 31, 32, 135, 136, 137, 271, 272, 409] {
+    for chunk in [1 as usize, 7, 8, 31, 32, 135, 136, 137, 271, 272, 409] {
         var state = Keccak256::new()
-        var offset: u64 = 0
+        var offset: usize = 0
         while offset < 409 {
             state.update(input, offset, len: 0)
             let len = if chunk < 409 - offset { chunk } else { 409 - offset }
@@ -53,10 +53,10 @@ fn keccak_buffer_lanes_match_bytes_at_every_alignment() {
         array[index] = bytes[index]
         index += 1
     }
-    for chunk in [1 as u64, 3, 8, 13, 32, 135, 136, 137, 409] {
+    for chunk in [1 as usize, 3, 8, 13, 32, 135, 136, 137, 409] {
         var buffered = Keccak256::new()
         var spanned = Keccak256::new()
-        var offset: u64 = 0
+        var offset: usize = 0
         while offset < 409 {
             let len = if chunk < 409 - offset { chunk } else { 409 - offset }
             buffered.update(bytes, offset, len)
@@ -84,4 +84,31 @@ fn keccak_borrows_buffer_ranges() {
     spanned.update(bytes.span(), offset: 1, len: 3)
     core::assert(digest_word(spanned.finish()) == 0x4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45)
     core::assert(bytes.len() == 5 && bytes[0] == 255 && bytes[4] == 255)
+}
+
+#[test]
+fn keccak_words_match_their_bytes() {
+    // 32-, 20- and 1-byte words after 0..=8 leading bytes, so they start at
+    // every lane alignment, and repeated past the 136-byte rate.
+    let word: u256 = 0x0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20
+    for len in [32 as usize, 20, 9, 8, 1, 0] {
+        for lead in 0..9 {
+            var bytes: [u8; 360] = [0; 360]
+            var hashed: usize = 0
+            var state = Keccak256::new()
+            for i in 0..lead {
+                bytes[i] = 0xa0 + i.downcast_truncate()
+                state.update_word(0xa0 + i as u256, len: 1)
+            }
+            hashed = lead
+            for _ in 0..9 {
+                for i in 0..len { bytes[hashed + i] = (word >> ((len - 1 - i) * 8) as u256).downcast_truncate() }
+                state.update_word(word, len)
+                hashed += len
+            }
+            var expected = Keccak256::new()
+            expected.update(bytes, offset: 0, len: hashed)
+            core::assert(state.finish_word() == expected.finish_word())
+        }
+    }
 }

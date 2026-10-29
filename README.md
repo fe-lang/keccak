@@ -12,15 +12,23 @@ var state = Keccak256::new()
 state.update([97 as u8, 98, 99], offset: 0, len: 2)
 state.update([97 as u8, 98, 99], offset: 2, len: 1)
 let streamed = state.finish()
+var words = Keccak256::new()
+words.update_word(0xff, len: 1)
+words.update_word(sender, len: 20)
+words.update_word(salt, len: 32)
+let create2 = words.finish_word()
 let word = keccak256_word([97 as u8, 98, 99])
 ```
 
-`ByteSource` supplies `len()`, `byte_at(index)` and `lane_at(index)` for
-arrays, `core::MemBuffer` and `core::MemSpan`. `lane_at` returns eight bytes as
+`ByteSource` supplies `len()`, `byte_at(index)` and `lane_at(index)`, indexed
+by `usize`, for arrays, `core::MemBuffer` and `core::MemSpan`. `lane_at` returns eight bytes as
 a little-endian `u64`; it defaults to eight `byte_at` reads, and the buffer and
 span read the lane at once. Implement them for other borrowed byte sources.
 `update` checks its source range, accepts empty updates, and supports arbitrary
-chunk boundaries; between lane boundaries it absorbs whole lanes. `finish`
+chunk boundaries; between lane boundaries it absorbs whole lanes.
+`update_word(value, len)` absorbs the last `len` (at most 32) bytes of a word's
+big-endian encoding, so a hash input built from words, addresses and single
+bytes needs no buffer. `finish`
 consumes the hash state and returns `[u8; 32]`; `finish_word` returns the digest
 as a big-endian `u256`, as the EVM's `KECCAK256` does, and `keccak256_word`
 hashes a whole source that way.
@@ -32,10 +40,8 @@ and its tests.
 
 ## Tests
 
-All four library tests pass at O0/O1/O2 natively and on EVM on Linux x86_64
-with Fe `d12da142a` (branch `feat/generic-byte-order`, which adds
-`MemSpan::read_le` and `core::num::swap_bytes`), built with
-`--features cranelift`.
+All five library tests pass at O0/O1/O2 natively and on EVM on Linux x86_64
+with Fe master `3587ff999`, built with `--features cranelift`.
 The library uses MVS `var` mutable values and `var own self` receivers.
 Run the library's native tests at all optimization levels:
 
@@ -47,7 +53,8 @@ fe test . --backend native -O 2
 
 Coverage includes fixed known answers, empty input, chunking across the
 136-byte rate boundary, buffer and span lanes at every alignment against byte
-reads, the word digest, and borrowed buffer subranges. The library tests also
+reads, words of 0 to 32 bytes at every lane alignment against their bytes, the
+word digest, and borrowed buffer subranges. The library tests also
 pass on EVM (`fe test .`).
 
 ## Native differential checks and benchmarks
