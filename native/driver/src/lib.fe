@@ -32,12 +32,12 @@ fn write64(_ value: u64) uses (output: mut HostIo) {
 }
 
 #[inline(never)]
-fn hash_runtime(_ input: MemBuffer, len: u64, chunk: u64) -> [u8; 32] {
+fn hash_runtime(_ input: MemBuffer, len: usize, chunk: usize) -> [u8; 32] {
     var state = Keccak256::new()
     if chunk == 0 {
         state.update(input, offset: 0, len)
     } else {
-        var offset: u64 = 0
+        var offset: usize = 0
         while offset < len {
             let take = if chunk < len - offset { chunk } else { len - offset }
             state.update(input, offset, len: take)
@@ -70,7 +70,7 @@ pub fn main() -> i32 {
             var iteration: u64 = 0
             let started = cpu_clock_ticks()
             while iteration < rounds {
-                result = hash_runtime(input, len: black_box_u64(len), chunk)
+                result = hash_runtime(input, len: black_box_u64(len) as usize, chunk: chunk as usize)
                 var word: u64 = 0
                 index = 0
                 while index < 8 {
