@@ -41,7 +41,7 @@ fn keccak_updates_cross_rate_boundaries_and_preserve_the_input() {
 
 #[test]
 fn keccak_buffer_lanes_match_bytes_at_every_alignment() {
-    var bytes = MemBuffer::alloc(409)
+    var bytes = MemBuffer::new(409)
     var index: usize = 0
     while index < 409 {
         bytes[index] = (index * 7).downcast_truncate()
@@ -71,7 +71,7 @@ fn keccak_buffer_lanes_match_bytes_at_every_alignment() {
 
 #[test]
 fn keccak_borrows_buffer_ranges() {
-    var bytes = MemBuffer::alloc(5)
+    var bytes = MemBuffer::new(5)
     bytes[0] = 255
     bytes[1] = 97
     bytes[2] = 98

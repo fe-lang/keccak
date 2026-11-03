@@ -41,7 +41,7 @@ and its tests.
 ## Tests
 
 All five library tests pass at O0/O1/O2 natively and on EVM on Linux x86_64
-with Fe master `3587ff999`, built with `--features cranelift`.
+with Fe master `81c2e893e`, built with `--features cranelift`.
 The library uses MVS `var` mutable values and `var own self` receivers.
 Run the library's native tests at all optimization levels:
 
