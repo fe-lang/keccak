@@ -95,16 +95,28 @@ impl Keccak256 {
     /// absorbs the bytes up to the next lane boundary with one XOR.
     pub fn update_word(mut self, _ value: u256, len: usize) {
         core::assert(len <= 32)
-        // The bytes still to absorb are the low `remaining` of `value`.
+        // The big-endian bytes as lanes, lane i holding bytes 8i to 8i + 7 low
+        // first, and a zero lane past them for the funnel below.
+        let words: [u64; 5] = [
+            swap_bytes((value >> 192).downcast_truncate()),
+            swap_bytes((value >> 128).downcast_truncate()),
+            swap_bytes((value >> 64).downcast_truncate()),
+            swap_bytes(value.downcast_truncate()),
+            0,
+        ]
+        var start = 32 - len
         var remaining = len
         while remaining > 0 {
             let offset = self.position % 8
             let take = if remaining < 8 - offset { remaining } else { 8 - offset }
-            // The next `take` bytes, the low ones of `chunk`, go to the top of
-            // a lane, big-endian, then byte-swapped to its bytes from `offset`.
-            let chunk: u64 = (value >> ((remaining - take) * 8) as u256).downcast_truncate()
-            let top = chunk << ((8 - take) * 8).downcast_unchecked()
-            self.lanes[self.position / 8] ^= swap_bytes(top) << (offset * 8).downcast_unchecked()
+            // The `take` bytes from `start`, low first.
+            let shift: u64 = ((start % 8) * 8).downcast_unchecked()
+            let low = words[start / 8] >> shift
+            let high = if shift == 0 { 0 } else { words[start / 8 + 1] << (64 - shift) }
+            let all: u64 = 0xffffffffffffffff
+            let mask = if take == 8 { all } else { all >> (64 - take * 8).downcast_unchecked() }
+            self.lanes[self.position / 8] ^= ((low | high) & mask) << (offset * 8).downcast_unchecked()
+            start += take
             remaining -= take
             self.advance(take)
         }
