@@ -95,6 +95,38 @@ impl Keccak256 {
     /// absorbs the bytes up to the next lane boundary with one XOR.
     pub fn update_word(mut self, _ value: u256, len: usize) {
         core::assert(len <= 32)
+        if len != 0 && self.position + len <= 136 {
+            // Within the block: the bytes moved to the front of the word, as
+            // lanes holding bytes 8i to 8i + 7 low first, shifted to the
+            // position. The zero bytes past them change nothing they reach,
+            // which stays below lane 21.
+            let leading = value << ((32 - len) * 8) as u256
+            let w0 = swap_bytes((leading >> 192).downcast_truncate())
+            let w1 = swap_bytes((leading >> 128).downcast_truncate())
+            let w2 = swap_bytes((leading >> 64).downcast_truncate())
+            let w3 = swap_bytes(leading.downcast_truncate())
+            let lane = self.position / 8
+            let shift: u64 = ((self.position % 8) * 8).downcast_unchecked()
+            if shift == 0 {
+                self.lanes[lane] ^= w0
+                self.lanes[lane + 1] ^= w1
+                self.lanes[lane + 2] ^= w2
+                self.lanes[lane + 3] ^= w3
+            } else {
+                let back = 64 - shift
+                self.lanes[lane] ^= w0 << shift
+                self.lanes[lane + 1] ^= (w1 << shift) | (w0 >> back)
+                self.lanes[lane + 2] ^= (w2 << shift) | (w1 >> back)
+                self.lanes[lane + 3] ^= (w3 << shift) | (w2 >> back)
+                self.lanes[lane + 4] ^= w3 >> back
+            }
+            self.position += len
+            if self.position == 136 {
+                permute(mut self.lanes)
+                self.position = 0
+            }
+            return
+        }
         // The big-endian bytes as lanes, lane i holding bytes 8i to 8i + 7 low
         // first, and a zero lane past them for the funnel below.
         let words: [u64; 5] = [
