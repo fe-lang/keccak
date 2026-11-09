@@ -53,6 +53,31 @@ impl Keccak256 {
         // Whole lanes. `index + remaining` stays `len`, and `offset + len`
         // fits the input, so the additions cannot wrap.
         var remaining = len - index
+        // Whole blocks from a block boundary: each lane of the rate at a
+        // fixed index, then one permutation, with no position to carry.
+        while self.position == 0 && remaining >= 136 {
+            let at = offset.wrapping_add(index)
+            self.lanes[0] ^= input.lane_at(at.wrapping_add(0))
+            self.lanes[1] ^= input.lane_at(at.wrapping_add(8))
+            self.lanes[2] ^= input.lane_at(at.wrapping_add(16))
+            self.lanes[3] ^= input.lane_at(at.wrapping_add(24))
+            self.lanes[4] ^= input.lane_at(at.wrapping_add(32))
+            self.lanes[5] ^= input.lane_at(at.wrapping_add(40))
+            self.lanes[6] ^= input.lane_at(at.wrapping_add(48))
+            self.lanes[7] ^= input.lane_at(at.wrapping_add(56))
+            self.lanes[8] ^= input.lane_at(at.wrapping_add(64))
+            self.lanes[9] ^= input.lane_at(at.wrapping_add(72))
+            self.lanes[10] ^= input.lane_at(at.wrapping_add(80))
+            self.lanes[11] ^= input.lane_at(at.wrapping_add(88))
+            self.lanes[12] ^= input.lane_at(at.wrapping_add(96))
+            self.lanes[13] ^= input.lane_at(at.wrapping_add(104))
+            self.lanes[14] ^= input.lane_at(at.wrapping_add(112))
+            self.lanes[15] ^= input.lane_at(at.wrapping_add(120))
+            self.lanes[16] ^= input.lane_at(at.wrapping_add(128))
+            permute(mut self.lanes)
+            index = index.wrapping_add(136)
+            remaining -= 136
+        }
         while remaining >= 8 {
             self.lanes[self.position / 8] ^= input.lane_at(offset.wrapping_add(index))
             self.advance(8)
